@@ -1,0 +1,346 @@
+clc
+clear all
+close all
+
+%% Numero do ciclo para analise
+% Ciclo a ser analisado
+
+nciclo=5;
+
+%% valores de correção
+% Se ja houver arquivo com o ciclo, ele carrega e alimenta o programa
+
+correcao=load(sprintf('correcao_N_%s.dat',num2str(nciclo)));
+
+%% Carregar o arquivo
+% Verificacao da exixtencia do arquivo
+
+temperatura=[300 400 500 600];
+tempo=[30 60 90 120];
+
+
+m=0;
+for z=1:size(temperatura,2)
+    for w=1:size(tempo,2)
+      
+        clear dados media_a a1
+        
+        m=m+1;
+        
+        if exist(sprintf('%sC_%sMIN_5C.TXT',num2str(temperatura(z)),num2str(tempo(w))),'file')==2 %teste de NULL
+            nciclo
+            sprintf('%sC_%sMIN_5C.TXT',num2str(temperatura(z)),num2str(tempo(w)))
+            
+            dados=load(sprintf('%sC_%sMIN_5C.TXT',num2str(temperatura(z)),num2str(tempo(w))));
+            
+            %           plot(dados(:,1),dados(:,4)*30,dados(:,1),dados(:,7),'r.-',dados(:,1),dados(:,6),'b.-',dados(:,1),dados(:,2))
+            
+            %% Verificacao de pontos para gerar TD
+            %marca o inicio do ciclo escolhido e o final tb
+            ingresso=0;
+            for x=1:size(dados,1)
+                if (dados(x,5)==nciclo && ingresso==0)
+                    ingresso=1;
+                    ponto=x;
+                end
+            end
+            
+            hugo=1;
+            while (dados(ponto+hugo,5)==nciclo && (ponto+hugo)<size(dados,1))
+                hugo=hugo+1;
+            end
+            ponto_f=ponto+hugo;
+            
+            
+            %% %determinacao de intervalos na plotagem carga constante
+            
+            la_i=ponto; la_f=ponto_f;
+            
+            %% Determinacao de intervalos para obtencao do TD
+            clear a1
+            a1(:,1)=dados(la_i:la_f,6); %laser
+            a1(:,2)=dados(la_i:la_f,7); %CC
+            %             a1(:,3)=dados(la_i:la_f,1); %tempo
+            %             a1(:,4)=dados(la_i:la_f,4); % bomba
+            
+            %indicacao do inicio da analise da matrix a1 para a funcao
+            %analise
+            
+            if correcao(1,m)==-1
+                plot(a1(:,1),'r.-')
+                hold on
+                plot(a1(:,2),'b.-')
+                title('Indicar inicio para analise:')
+                correcao(1,m) = input ('Inicio do ponto de analise: ');
+                close figure 1
+            end
+            
+            
+            %% Funcao que analisa dos dados
+            
+            [media_a]=analise_2(a1,la_i,la_f,correcao(1,m));
+            
+            %% Adicao de valor para corrigir laser
+            
+            %correcao de sinal do laser
+            
+            if correcao(2,m)==-1
+                
+                plot(media_a(:,1),'r.-')
+                hold on
+                plot(media_a(:,2),'b.-')
+                correcao(2,m) = input ('Fornecer valor de correção Laser: ');
+            end
+            
+            if correcao(3,m)==-1
+                correcao(3,m) = input ('A partir do ponto: '); %ponto onde a queda de tensão ocorre
+                close figure 1
+            end
+            
+            for i=correcao(3,m):size(media_a,1)
+                media_a(i,2)= media_a(i,2)+correcao(2,m);
+            end
+            
+            plot(media_a(:,1),'r.-')
+            hold on
+            plot(media_a(:,2),'b.-')
+            
+            if correcao(4,m)==-1
+                correcao(4,m) = input ('Ponto duplo? [1(sim) 2(nao)]: '); %ponto onde a queda de tensão ocorre
+                if correcao(4,m) == 1
+                    correcao(5,m) = input ('Valor de correcao: '); %ponto onde a queda de tensão ocorre
+                    correcao(6,m) = input ('Ponto de correcao: '); %ponto onde a queda de tensão ocorre
+                end
+            end
+            
+            if correcao(4,m) == 1               
+                media_a(correcao(6,m),2)=media_a(correcao(6,m),2)+correcao(5,m);
+            end
+          
+            if correcao(4,m) == 1
+                close figure 1
+                plot(media_a(:,1),'r.-')
+                hold on
+                plot(media_a(:,2),'b.-')
+%                 pause
+                close figure 1
+            else
+                close figure 1
+            end
+
+        end
+            save(sprintf('correcao_N_%s.dat',num2str(nciclo)),'correcao','-ascii');
+            type(sprintf('correcao_N_%s.dat',num2str(nciclo)));
+                     
+        %% calculo da area dos ciclos
+        
+        area(m,:)=[temperatura(z) tempo(w) polyarea(media_a(:,1),media_a(:,2))];
+
+          %% Geracao de dados        
+          
+          save(sprintf('TD_%sC_%sMIN_NC_%s.dat',num2str(temperatura(z)),num2str(tempo(w)),num2str(nciclo)),'media_a','-ascii','-tabs');
+          type(sprintf('TD_%sC_%sMIN_NC_%s.dat',num2str(temperatura(z)),num2str(tempo(w)),num2str(nciclo)));
+          
+          save(sprintf('AREA_%sC_%sMIN_NC_%s.dat',num2str(temperatura(z)),num2str(tempo(w)),num2str(nciclo)),'area','-ascii','-tabs');
+          type(sprintf('AREA_%sC_%sMIN_NC_%s.dat',num2str(temperatura(z)),num2str(tempo(w)),num2str(nciclo)));       
+                         
+%           plot(media_a(:,1),'r.-')
+%           hold on
+%           plot(media_a(:,2),'b.-')
+%           pause
+    
+    
+    end
+end
+ pause
+ 
+ 
+    close all
+    indice=0;
+    for z=1:size(temperatura,2)
+        space=0;
+        espaco=0;
+        figure(z)
+        for w=1:size(tempo,2)
+
+            if exist(sprintf('TD_%sC_%sMIN_NC_%s.dat',num2str(temperatura(z)),num2str(tempo(w)),num2str(nciclo)),'file')==2
+
+                fig=load(sprintf('TD_%sC_%sMIN_NC_%s.dat',num2str(temperatura(z)),num2str(tempo(w)),num2str(nciclo)));
+
+
+                handle=plot(fig(:,2)-fig(1,2)+space,(fig(:,1)-fig(1,1))*9.79,'r');
+
+                set(handle,'LineWidth',1.5)
+
+                hold on
+
+                set(gca,'FontName','Times','fontSize',11,'fontweight','bold')
+%                 set(gca,'LineWidth',1.5,'fontweight','bold','fontSize',11,'Xlim',[-5 35],'Ylim',[-3.5 70], 'Xtick',[])
+                xlabel('Deslocamento','fontSize',11);
+                ylabel('Força [N]','fontSize',11);
+%                 legend(sprintf('%s°C',num2str(temperatura(z))),'Location','NorthWest','Orientation','horizontal');
+%                 legend('boxoff')
+
+                t=text(-1.5+espaco,-2,sprintf('%s min',num2str(tempo(w))))
+                t.FontSize=11
+
+                t=text(-3, 42.5,sprintf('%s°C',num2str(temperatura(z))))
+                t.FontSize=11
+
+                space=space+8;
+                espaco=espaco+8;
+            end
+            print('-dpng',sprintf('%sC_CICLO_%s.png',num2str(temperatura(z)),num2str(nciclo)))
+        end
+        hold off
+    end
+
+    % 300C
+    figure(5)
+    fig_area=plot(area(1:4,2),area(1:4,3),'r-o')
+    hold on
+    set(fig_area,'LineWidth',1.75)
+
+    figure(5)
+    %400C
+    fig_area=plot(area(5:8,2),area(5:8,3),'b-o')
+    hold on
+    set(fig_area,'LineWidth',1.75)
+
+    figure(5)
+    %500C
+    fig_area=plot(area(9:12,2),area(9:12,3),'k-o')
+    hold on
+    set(fig_area,'LineWidth',1.75)
+
+    figure(5)
+    %600C
+    fig_area=plot(area(13:16,2),area(13:16,3),'m-o')
+    hold on
+    legend('300°C','400°C','500°C','600°C','Location','NorthWest','Orientation','horizontal');
+    legend('boxoff')
+    set(fig_area,'LineWidth',1.5)
+%     set(gca,'LineWidth',2,'fontweight','bold','fontSize',15, 'Xlim',[20 130],'Xtick',[30 60 90 120], 'Ylim',[0 3],'Xtick',[0:0.5:3])
+    set(gca,'LineWidth',1.5,'fontweight','bold','fontSize',11, 'Xlim',[20 130],'Xtick',[30 60 90 120], 'Ylim',[0 5],'Xtick',[0:0.5:3])
+
+%     print('-dpng','COMPARACAO_ENERGIA.png')
+
+
+%             save(sprintf('correcao_N_%s.dat',num2str(nciclo)),'correcao','-ascii');
+%             type(sprintf('correcao_N_%s.dat',num2str(nciclo)));
+%
+%             %% calculo da area dos ciclos
+%
+%             area(m,:)=[temperatura(z) tempo(w) polyarea(media_a(:,1),media_a(:,2))];
+%
+%             %% Plotagem e geracao de dados
+%
+%
+%             save(sprintf('TD_%sC_%sMIN_NC_%s.dat',num2str(temperatura(z)),num2str(tempo(w)),num2str(nciclo)),'media_a','-ascii','-tabs');
+%             type(sprintf('TD_%sC_%sMIN_NC_%s.dat',num2str(temperatura(z)),num2str(tempo(w)),num2str(nciclo)));
+%
+%             save(sprintf('AREA_%sC_%sMIN_NC_%s.dat',num2str(temperatura(z)),num2str(tempo(w)),num2str(nciclo)),'area','-ascii','-tabs');
+%             type(sprintf('AREA_%sC_%sMIN_NC_%s.dat',num2str(temperatura(z)),num2str(tempo(w)),num2str(nciclo)));
+%
+%             %handle=plot(media_a(:,1)-media_a(1,1),(media_a(:,2)-media_a(1,2))*9.79,'r');
+%         else
+%             area(m,:)=[temperatura(z) tempo(w) 0];
+%         end
+%     end
+% end
+%    
+%
+%
+%     %
+%     %
+%     %
+%     % %
+%     % saveas(gcf,'BarChartFile','epsc')
+%     %
+%     % handle=plot(media_a(:,1)-media_a(1,1),(media_a(:,2)-media_a(1,2))*9.79,'r');
+%     % set(handle,'LineWidth',2)
+%     % save('500C_2H_04_10_17.dat','media_a','-ascii','-tabs')
+%     % hold on
+%     % handle=plot(media_b(:,1)-media_b(1,1)+6,(media_b(:,2)-media_b(1,2))*9.79,'b');
+%     % set(handle,'LineWidth',2)
+%     % hold on
+%     % handle=plot(media_c(:,1)-media_c(1,1)+15,(media_c(:,2)-media_c(1,2))*9.79,'k');
+%     % set(handle,'LineWidth',2)
+%     % hold on
+%     % handle=plot(media_d(:,1)-media_d(1,1)+22,(media_d(:,2)-media_d(1,2))*9.79,'m');
+%     % set(handle,'LineWidth',2)
+%     % hold on
+%     % handle=plot(media_e(:,1)-media_e(1,1)+31,(media_e(:,2)-media_e(1,2))*9.79,'Color',[0 0.5 0]);
+%     % set(handle,'LineWidth',2)
+%     % hold off
+%     % set(gca,'FontName','Times','fontSize',15,'fontweight','bold','Xlim',[-3 45],'Ylim',[-6 50])
+%     % set(gca,'LineWidth',2,'fontweight','bold','fontSize',15, 'Xtick',[],'Ytick',[-0.0:10:50])
+%     %
+%     % txt1a='(a)';
+%     % t=text(-1,-3,txt1a)
+%     % t.FontSize=15
+%     % txt1a='(b)';
+%     % t=text(5,-3,txt1a)
+%     % t.FontSize=15
+%     % txt1a='(c)';
+%     % t=text(14.5,-3,txt1a)
+%     % t.FontSize=15
+%     % txt1a='(d)';
+%     % t=text(21,-3,txt1a)
+%     % t.FontSize=15
+%     % txt1a='(e)';
+%     % t=text(30.5,-3,txt1a)
+%     % t.FontSize=15
+%     %
+%     % legend('Solub.','Env. 30min','Env.1h','Env.1h30','Env2h','Location','NorthWest','Orientation','horizontal');
+%     % legend('boxoff')
+%     % ylabel('For�a [N]','fontSize',15,'fontweight','bold');
+%     % title('Deslocamento Constante');
+%     % xlabel('Deslocamento','fontSize',15,'fontweight','bold');
+%     % legend('Solubilizada','Env. 30min','Env. 1h','Env. 1h30','Env 2h','Location','NorthWest');
+%     %
+%     % print('-dpng','COMPARA��O TRATAMENTOS_28 05 17 - DESLOCAMENTO CONSTANTE.png')
+%     % % %
+%     % area=[area_a*0.1 area_b*0.1 area_c*0.1 area_d*0.1 area_e*0.1];
+%     % %
+%     % figure (2)
+%     % handle=plot(area,'o-');
+%     % set(handle,'LineWidth',2)
+%     % set(gca,'FontName','Times','fontSize',15,'fontweight','bold','Xlim',[0.5 5.5],'Ylim',[0.0 2])
+%     % set(gca,'LineWidth',2,'fontweight','bold','fontSize',15,'Xtick',[1 2 3 4 5])
+%     % set(gca,'xticklabels',{'Solub','30min','1h','1h30','2h'})
+%     % xlabel('Tratamento t�rmico','fontSize',15,'fontweight','bold');
+%     % ylabel('Energia - La�o de Histerese [J]','fontSize',15,'fontweight','bold');
+%     % % title('Deslocamento Constante');
+%     % %
+%     % % %
+%     % % print('-dpng','COMPARA��O ENERGIA LA�OS_22 05 17 - DESLOCAMENTO CONSTANTE.png')
+%     % % %
+%     % % %
+%     % print('-dpng','TESTE1.png')
+%     %
+%     % save SOLUB_para_comparacao.dat media_a -ascii -tabs
+%     %
+%     % save 500C_30min.dat media_a -ascii -tabs
+%
+%
+%
+%
+%
+%             %Valores ja verificados
+%             %300°c 30min: soma 0,4; Retirada de max 21.2
+%             %300°c 60min: soma 0,73; Retirada de max 25.6
+%             %300°c 90min: soma 0,81; Retirada de max 25.45
+%             %300°c 120min: soma 0,04; Retirada de max 19.6801
+%
+%             % 400°C  30min: soma 0.73 ;      Retirada de max 25.8
+%              % 400°C  60min: soma 0.42 ;      Retirada de max 22.7
+%              % 400°C  90min: soma 0.3 ;      Retirada de max 24.1
+%              % 400°C 120min: soma 0.3 ;      Retirada de max 24.035
+%
+%             % 500°C 30min: soma 0.12 ;   Retirada de max 24.52
+%             %500°C 60min: soma 0.86 ;   Retirada de max 30.25
+%             % 500°C 90min: soma 0.68 ; Retirada de max 26.2
+%             % 500°C 120min: soma 0.26 ;      Retirada de max 24.6
+%
+%             % 600°C 30min: soma 0.13 ;      Retirada de max 23.136
